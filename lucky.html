@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Premium Lucky Wheel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --dark-red: #8b0000;
+            --gold: #ffd700;
+            --dark-bg: #1a0000;
+        }
+
+        body {
+            background-color: var(--dark-bg);
+            color: white;
+            font-family: 'Pyidaungsu', sans-serif;
+            overflow-x: hidden;
+        }
+
+        .wheel-container {
+            position: relative;
+            width: 320px;
+            height: 320px;
+            margin: 0 auto;
+        }
+
+        #wheel {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 8px solid var(--gold);
+            transition: transform 5s cubic-bezier(0.15, 0, 0.15, 1);
+            box-shadow: 0 0 30px rgba(255, 215, 0, 0.3);
+        }
+
+        .pointer {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 40px;
+            background: var(--gold);
+            clip-path: polygon(50% 100%, 0 0, 100% 0);
+            z-index: 10;
+        }
+
+        .premium-btn {
+            background: linear-gradient(45deg, #d4af37, #f9e272, #d4af37);
+            color: #4a0000;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        .premium-btn:hover:not(:disabled) {
+            transform: scale(1.05);
+            box-shadow: 0 0 15px var(--gold);
+        }
+
+        .premium-btn:disabled {
+            background: #555;
+            color: #888;
+            cursor: not-allowed;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: var(--dark-red);
+            padding: 2rem;
+            border-radius: 15px;
+            border: 3px solid var(--gold);
+            text-align: center;
+            max-width: 90%;
+        }
+
+        .contact-bar {
+            border-top: 1px solid #4a0000;
+            background: #2a0000;
+        }
+
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--gold);
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="min-h-screen flex flex-col items-center py-10 px-4">
+        <h1 class="text-4xl font-bold mb-8 text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-yellow-600 text-center">
+            LUCKY SPIN
+        </h1>
+
+        <div class="mb-8 w-full max-w-sm">
+            <input type="text" id="promoCode" placeholder="Code ထည့်ပါ..." 
+                class="w-full p-4 rounded-lg bg-gray-900 border-2 border-yellow-600 text-yellow-500 text-center text-xl focus:outline-none focus:border-yellow-400">
+            <p id="errorMsg" class="text-red-500 text-center mt-2 hidden font-bold"></p>
+        </div>
+
+        <div class="wheel-container mb-10">
+            <div class="pointer"></div>
+            <canvas id="wheel"></canvas>
+        </div>
+
+        <button id="spinBtn" class="premium-btn px-12 py-4 rounded-full text-2xl shadow-xl">
+            <span id="btnLoader" class="loader hidden"></span>
+            <span id="btnText">SPIN လှည့်ပါ</span>
+        </button>
+
+        <div class="mt-12 w-full max-w-xs p-4 bg-red-900/30 border border-yellow-600 rounded-xl text-center">
+            <p class="text-yellow-400 mb-2 font-bold">Bonus များစွာ ရယူရန် 111 နှိပ်ပါ</p>
+            <input type="number" id="bonusCode" class="w-20 p-2 rounded bg-black border border-yellow-600 text-center text-yellow-500" placeholder="---">
+        </div>
+
+        <div class="mt-auto w-full contact-bar p-6 text-center">
+            <h3 class="mb-4 font-bold text-yellow-500">ဆက်သွယ်ရန်</h3>
+            <div class="flex justify-center space-x-6 mb-4 text-3xl">
+                <a href="https://t.me/yourusername" class="text-blue-400 hover:text-blue-300" target="_blank"><i class="fab fa-telegram"></i></a>
+                <a href="viber://add?number=yournumber" class="text-purple-500 hover:text-purple-400" target="_blank"><i class="fab fa-viber"></i></a>
+            </div>
+            <p class="text-sm text-gray-400">© 2024 Digital Way Class</p>
+        </div>
+    </div>
+
+    <div id="resultModal" class="modal">
+        <div class="modal-content">
+            <h2 id="resultTitle" class="text-3xl font-bold text-yellow-400 mb-4"></h2>
+            <p id="resultText" class="text-xl mb-6"></p>
+            <button onclick="closeModal()" class="premium-btn px-8 py-2 rounded-lg">အိုကေ</button>
+        </div>
+    </div>
+
+    <script>
+        // Google Sheet Apps Script URL
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzIBUDL47pqZmRQWbp318SjaXy9KzTmo4jS0Q5b8IwKhepYEKDbvX_ag_wgNXhg6cZf/exec";
+
+        const prizes = [
+            "ဗလာ", "ကား", "ဖုန်း", "လက်ဆောင်", "ရွှေဒင်္ဂါး", 
+            "နာရီ", "Laptop", "ဗလာ", "ငွေသား", "ခရီးစဉ်", "ဗလာ"
+        ];
+
+        const canvas = document.getElementById('wheel');
+        const ctx = canvas.getContext('2d');
+        const spinBtn = document.getElementById('spinBtn');
+        const btnLoader = document.getElementById('btnLoader');
+        const btnText = document.getElementById('btnText');
+        const promoCodeInput = document.getElementById('promoCode');
+        const errorMsg = document.getElementById('errorMsg');
+        const bonusInput = document.getElementById('bonusCode');
+
+        let currentRotation = 0;
+        const totalSegments = prizes.length;
+        const segmentAngle = 360 / totalSegments;
+
+        function drawWheel() {
+            const size = 300;
+            canvas.width = size;
+            canvas.height = size;
+            const centerX = size / 2;
+            const centerY = size / 2;
+            const radius = size / 2 - 10;
+
+            prizes.forEach((prize, i) => {
+                const startAngle = (i * segmentAngle - 90) * Math.PI / 180;
+                const endAngle = ((i + 1) * segmentAngle - 90) * Math.PI / 180;
+
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+                ctx.fillStyle = i % 2 === 0 ? '#8b0000' : '#4a0000';
+                ctx.fill();
+                ctx.strokeStyle = '#ffd700';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                ctx.save();
+                ctx.translate(centerX, centerY);
+                ctx.rotate(startAngle + (segmentAngle / 2) * Math.PI / 180);
+                ctx.textAlign = "right";
+                ctx.fillStyle = "#ffd700";
+                ctx.font = "bold 12px Arial";
+                ctx.fillText(prize, radius - 15, 5);
+                ctx.restore();
+            });
+        }
+        drawWheel();
+
+        spinBtn.addEventListener('click', async () => {
+            const code = promoCodeInput.value.trim();
+            if (!code) {
+                showError("ကျေးဇူးပြု၍ ကုဒ်အရင်ထည့်ပါ");
+                return;
+            }
+
+            setLoading(true);
+            errorMsg.classList.add('hidden');
+
+            // "ဗလာ" ကျရန် index ရွေးချယ်ခြင်း
+            const loseIndexes = prizes.map((p, i) => p === "ဗလာ" ? i : -1).filter(i => i !== -1);
+            const targetIndex = loseIndexes[Math.floor(Math.random() * loseIndexes.length)];
+            const selectedPrize = prizes[targetIndex];
+
+            try {
+                // Google Sheet API ကို ခေါ်ယူခြင်း
+                // mode: 'no-cors' ကို ဖယ်ထုတ်လိုက်ပါသည် (Response ကို ဖတ်နိုင်ရန်)
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'text/plain;charset=utf-8',
+                    },
+                    body: JSON.stringify({ code: code, prize: selectedPrize })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // ကုဒ်မှန်ကန်ပါက Spin လှည့်မည်
+                    startSpin(targetIndex, selectedPrize);
+                } else {
+                    // ကုဒ်မှားလျှင် သို့မဟုတ် အသုံးပြုပြီးသားဖြစ်လျှင်
+                    const message = result.message === "Invalid Code." ? "ကုဒ်မှားယွင်းနေပါသည်" : "ဤကုဒ်ကို အသုံးပြုပြီးသားဖြစ်သည်";
+                    showError(message);
+                    setLoading(false);
+                }
+
+            } catch (error) {
+                console.error("API Error:", error);
+                showError("ကုဒ်စစ်ဆေးရာတွင် အမှားအယွင်းရှိနေပါသည်");
+                setLoading(false);
+            }
+        });
+
+        function startSpin(targetIndex, prize) {
+            const extraSpins = 10;
+            const currentModRotation = currentRotation % 360;
+            const rotationForTarget = 360 - (targetIndex * segmentAngle);
+            
+            let additionalRotation = rotationForTarget - currentModRotation;
+            if (additionalRotation <= 0) additionalRotation += 360;
+            
+            const totalRotation = (extraSpins * 360) + additionalRotation;
+            
+            currentRotation += totalRotation;
+            canvas.style.transform = `rotate(${currentRotation}deg)`;
+
+            setTimeout(() => {
+                showResult(prize);
+                setLoading(false);
+            }, 5200);
+        }
+
+        function showResult(prize) {
+            const modal = document.getElementById('resultModal');
+            const title = document.getElementById('resultTitle');
+            const text = document.getElementById('resultText');
+
+            title.innerText = "စိတ်မကောင်းပါဘူး";
+            title.style.color = "#aaaaaa";
+            text.innerText = "ဗလာဖြစ်ပါသည်၊ နောက်တစ်ကြိမ် ပြန်လည်ကံစမ်းပေးပါ။";
+            modal.style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('resultModal').style.display = 'none';
+            promoCodeInput.value = "";
+        }
+
+        function triggerFireworks() {
+            const end = Date.now() + (3 * 1000);
+            const colors = ['#ffd700', '#ff0000', '#ffffff'];
+
+            (function frame() {
+                confetti({
+                    particleCount: 5,
+                    angle: 60,
+                    spread: 60,
+                    origin: { x: 0 },
+                    colors: colors
+                });
+                confetti({
+                    particleCount: 5,
+                    angle: 120,
+                    spread: 60,
+                    origin: { x: 1 },
+                    colors: colors
+                });
+
+                if (Date.now() < end) {
+                    requestAnimationFrame(frame);
+                }
+            }());
+        }
+
+        function setLoading(isLoading) {
+            spinBtn.disabled = isLoading;
+            if (isLoading) {
+                btnLoader.classList.remove('hidden');
+                btnText.innerText = "စစ်ဆေးနေသည်...";
+            } else {
+                btnLoader.classList.add('hidden');
+                btnText.innerText = "SPIN လှည့်ပါ";
+            }
+        }
+
+        function showError(msg) {
+            errorMsg.innerText = msg;
+            errorMsg.classList.remove('hidden');
+        }
+
+        bonusInput.addEventListener('input', (e) => {
+            if (e.target.value === "111") {
+                window.location.href = "https://www.digitalwayclass.com";
+            }
+        });
+    </script>
+</body>
+</html>
